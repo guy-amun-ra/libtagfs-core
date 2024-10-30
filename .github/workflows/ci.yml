@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create Release'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set Version
+      shell: bash
+      run: echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
+    
+    - name: Install Dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+      
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build
+      
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config Release
+      
+    - name: Test Build
+      shell: bash
+      working-directory: ${{github.workspace}}/build
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./Release/tagfs-hello.exe
+        else
+          ./tagfs-hello
+        fi
+        echo "Build artifact created for commit: ${GITHUB_SHA::8}"
+
+    - name: Create Release Tag
+      if: github.event_name == 'workflow_dispatch' && inputs.release && matrix.os == 'ubuntu-latest'
+      run: |
+        git config --global user.email "github-actions@github.com"
+        git config --global user.name "GitHub Actions"
+        if ! git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+          git tag -a "v${VERSION}" -m "Release version ${VERSION}"
+          git push origin "v${VERSION}"
+        else
+          echo "Tag v${VERSION} already exists"
+          exit 1
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
