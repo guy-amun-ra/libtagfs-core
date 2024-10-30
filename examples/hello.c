@@ -2,6 +2,6 @@
 #include "tagfs/core.h"
 
 int main() {
-    printf("TagFS Core Library Version: %s\n", tagfs_get_version());
+    printf("TagFS Core Library Version: %s\n", TAGFS_VERSION);
     return 0;
 }

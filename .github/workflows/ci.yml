@@ -22,10 +22,14 @@ jobs:
         
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # Fetch all history for all tags and branches
     
     - name: Set Version
       shell: bash
-      run: echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
+      run: |
+        TAGFS_VERSION=$(git describe --tags --always --dirty)
+        echo "TAGFS_VERSION=${TAGFS_VERSION}" >> $GITHUB_ENV
     
     - name: Install Dependencies (Ubuntu)
       if: runner.os == 'Linux'
@@ -53,11 +57,11 @@ jobs:
       run: |
         git config --global user.email "github-actions@github.com"
         git config --global user.name "GitHub Actions"
-        if ! git rev-parse "v${VERSION}" >/dev/null 2>&1; then
-          git tag -a "v${VERSION}" -m "Release version ${VERSION}"
-          git push origin "v${VERSION}"
+        if ! git rev-parse "${TAGFS_VERSION}" >/dev/null 2>&1; then
+          git tag -a "${TAGFS_VERSION}" -m "Release version ${TAGFS_VERSION}"
+          git push origin "${TAGFS_VERSION}"
         else
-          echo "Tag v${VERSION} already exists"
+          echo "Tag ${TAGFS_VERSION} already exists"
           exit 1
         fi
       env:

@@ -1,15 +1,56 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.10)
 
-# Read version from VERSION file
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" VERSION_CONTENT)
-string(STRIP "${VERSION_CONTENT}" VERSION_CONTENT)
+# Get version from Git
+find_package(Git QUIET)
+if(GIT_FOUND)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --tags --dirty
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE PROJECT_VERSION
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+endif()
 
-project(libtagfs-core VERSION ${VERSION_CONTENT} LANGUAGES C CXX)
+# If Git is not available or no tag is found, use a default version
+if("${PROJECT_VERSION}" STREQUAL "")
+  file(STRINGS "VERSION" PROJECT_VERSION)
+endif()
 
-# Library
-add_library(tagfs-core src/core.c)
-target_include_directories(tagfs-core PUBLIC include)
+project(libtagfs-core VERSION ${PROJECT_VERSION})
+
+# Configure version header
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/version.h
+    @ONLY
+)
+
+# Main library
+add_library(tagfs-core STATIC
+    src/core.c
+)
+
+target_include_directories(tagfs-core
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}/include
+)
+
+target_compile_definitions(tagfs-core PUBLIC TAGFS_VERSION="${PROJECT_VERSION}")
 
 # Example executable
-add_executable(tagfs-hello examples/hello.c)
-target_link_libraries(tagfs-hello PRIVATE tagfs-core)
+add_executable(tagfs-hello
+    examples/hello.c
+)
+
+target_link_libraries(tagfs-hello
+    PRIVATE
+    tagfs-core
+)
+
+# Tests
+option(BUILD_TESTS "Build tests" OFF)
+if(BUILD_TESTS)
+    add_subdirectory(tests/unit)
+endif()
