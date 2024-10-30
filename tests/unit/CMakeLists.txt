@@ -6,9 +6,9 @@ add_executable(tagfs_tests
 
 target_link_libraries(tagfs_tests
     PRIVATE
-    tagfs
+    tagfs-core
     GTest::gtest
     GTest::gtest_main
 )
 
-add_test(NAME tagfs_unit_tests COMMAND tagfs_tests)
+gtest_discover_tests(tagfs_tests)
