@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir -p artifacts
           if [ "$RUNNER_OS" == "Windows" ]; then
-            cp "${{github.workspace}}/build/Release/tagfs-hello.exe" artifacts/ || {
+            cp "${{github.workspace}}/build/x64/Release/tagfs-hello.exe" artifacts/ || {
               echo "Failed to copy Windows executable"
               ls -R "${{github.workspace}}/build"
               exit 1
