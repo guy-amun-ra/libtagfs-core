@@ -54,7 +54,7 @@ jobs:
           mkdir -p artifacts
           if [ "$RUNNER_OS" == "Windows" ]; then
             cp "${{github.workspace}}/build/Release/tagfs-hello.exe" artifacts/ || exit 1
-            ARTIFACT_NAME="tagfs-${{ steps.version.outputs.version }}-windows"
+            ARTIFACT_NAME="tagfs-${{ steps.version.outputs.version }}-windows.exe"
           elif [ "$RUNNER_OS" == "Linux" ]; then
             cp "${{github.workspace}}/build/tagfs-hello" artifacts/ || exit 1
             ARTIFACT_NAME="tagfs-${{ steps.version.outputs.version }}-linux"
@@ -122,4 +122,3 @@ jobs:
           draft: ${{ inputs.draft }}
           generate_release_notes: true
           files: release_assets/*
-
