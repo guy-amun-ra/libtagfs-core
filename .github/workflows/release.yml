@@ -12,7 +12,9 @@ on:
 jobs:
   build-and-release:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15  # Add timeout to prevent hanging
     strategy:
+      fail-fast: false  # Continue with other builds if one fails
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         
@@ -30,13 +32,27 @@ jobs:
 
       - name: Install Dependencies (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake build-essential
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build -DBUILD_TESTS=ON
+        run: |
+          cmake -B ${{github.workspace}}/build -DBUILD_TESTS=ON
         
       - name: Build
-        run: cmake --build ${{github.workspace}}/build --config Release
+        run: |
+          cmake --build ${{github.workspace}}/build --config Release
+          
+      - name: Test Build
+        shell: bash
+        working-directory: ${{github.workspace}}/build
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            ./Release/tagfs-hello.exe
+          else
+            ./tagfs-hello
+          fi
 
       - name: Create Artifact Name
         id: artifact
