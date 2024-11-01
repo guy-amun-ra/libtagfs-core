@@ -40,12 +40,16 @@ jobs:
       
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config Release
-
       - name: Debug Build Directory
         shell: bash
         run: |
-          echo "Build directory contents:"
-          ls -R ${{github.workspace}}/build
+          echo "=== Build directory contents ==="
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            dir /s /b ${{github.workspace}}/build
+          else
+            ls -R ${{github.workspace}}/build
+          fi
+          
 
       - name: Prepare Artifact
         id: prepare
@@ -67,6 +71,7 @@ jobs:
             }
             echo "artifact_name=tagfs-${{ steps.version.outputs.version }}-${{ runner.os }}" >> $GITHUB_OUTPUT
           fi
+
           
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v3
@@ -114,9 +119,14 @@ jobs:
           done
 
       - name: Debug Release Assets
+        shell: bash
         run: |
-          echo "Release assets contents:"
-          ls -la release_assets/
+          echo "=== Release assets contents ==="
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            dir /s /b release_assets
+          else
+            ls -la release_assets/
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
