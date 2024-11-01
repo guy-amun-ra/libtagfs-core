@@ -40,16 +40,6 @@ jobs:
       
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config Release
-      - name: Debug Build Directory
-        shell: bash
-        run: |
-          echo "=== Build directory contents ==="
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cmd //c "dir /s /b ${{github.workspace}}/build"
-          else
-            ls -R ${{github.workspace}}/build
-          fi
-          
 
       - name: Prepare Artifact
         id: prepare
@@ -117,16 +107,6 @@ jobs:
               rmdir "$dir"
             fi
           done
-
-      - name: Debug Release Assets
-        shell: bash
-        run: |
-          echo "=== Release assets contents ==="
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cmd //c "dir /s /b release_assets"
-          else
-            ls -la release_assets/
-          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
