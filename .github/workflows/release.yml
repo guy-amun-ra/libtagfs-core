@@ -10,76 +10,13 @@ on:
         required: false
 
 jobs:
-  build-and-release:
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15  # Add timeout to prevent hanging
-    strategy:
-      fail-fast: false  # Continue with other builds if one fails
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Get Version
-        id: version
-        shell: bash
-        run: |
-          VERSION=$(cat VERSION | tr -d '\n')
-          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Install Dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake build-essential
-
-      - name: Configure CMake
-        run: |
-          cmake -B ${{github.workspace}}/build -DBUILD_TESTS=ON
-        
-      - name: Build
-        run: |
-          cmake --build ${{github.workspace}}/build --config Release
-          
-      - name: Test Build
-        shell: bash
-        working-directory: ${{github.workspace}}/build
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            ./Release/tagfs-hello.exe
-          else
-            ./tagfs-hello
-          fi
-
-      - name: Create Artifact Name
-        id: artifact
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            echo "name=tagfs-${{ steps.version.outputs.version }}-windows.exe" >> $GITHUB_OUTPUT
-            echo "path=build/Release/tagfs-hello.exe" >> $GITHUB_OUTPUT
-          else
-            echo "name=tagfs-${{ steps.version.outputs.version }}-${{ runner.os }}" >> $GITHUB_OUTPUT
-            echo "path=build/tagfs-hello" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ steps.artifact.outputs.name }}
-          path: ${{ steps.artifact.outputs.path }}
-
-  create-release:
-    needs: build-and-release
+  trigger-and-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Get Version
         id: version
         shell: bash
@@ -87,10 +24,43 @@ jobs:
           VERSION=$(cat VERSION | tr -d '\n')
           echo "version=v${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@v3
+      # First trigger CI workflow and wait for completion
+      - name: Trigger CI Workflow
+        uses: convictional/trigger-workflow-and-wait@v1.6.1
         with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.event.repository.name }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow_file_name: ci.yml
+          wait_interval: 10
+          trigger_workflow: true
+          wait_workflow: true
+          propagate_failure: true
+          ref: ${{ github.ref }}
+
+      # Download artifacts from all OS builds
+      - name: Download CI Artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: ci.yml
+          workflow_conclusion: success
+          commit: ${{ github.sha }}
           path: artifacts
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p release_assets
+          # Move and rename artifacts with proper OS names
+          if [ -f "artifacts/windows-latest/tagfs-hello.exe" ]; then
+            cp "artifacts/windows-latest/tagfs-hello.exe" "release_assets/tagfs-${{ steps.version.outputs.version }}-windows.exe"
+          fi
+          if [ -f "artifacts/ubuntu-latest/tagfs-hello" ]; then
+            cp "artifacts/ubuntu-latest/tagfs-hello" "release_assets/tagfs-${{ steps.version.outputs.version }}-linux"
+          fi
+          if [ -f "artifacts/macos-latest/tagfs-hello" ]; then
+            cp "artifacts/macos-latest/tagfs-hello" "release_assets/tagfs-${{ steps.version.outputs.version }}-macos"
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -99,4 +69,4 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           draft: ${{ inputs.draft }}
           generate_release_notes: true
-          files: artifacts/**/*
+          files: release_assets/*
