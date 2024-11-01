@@ -1,5 +1,3 @@
-# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
 name: CMake on multiple platforms
 
 on:
@@ -62,6 +60,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DBUILD_TESTS=ON
         -S ${{ github.workspace }}
 
     - name: Build
@@ -73,3 +72,39 @@ jobs:
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }}
+
+    - name: Package Artifacts
+      run: |
+        mkdir -p artifacts
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tagfs-hello.exe artifacts/
+          cp ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tagfs_tests.exe artifacts/
+        else
+          cp ${{ steps.strings.outputs.build-output-dir }}/tagfs-hello artifacts/
+          cp ${{ steps.strings.outputs.build-output-dir }}/tagfs_tests artifacts/
+        fi
+      shell: bash
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: tagfs-${{ matrix.os }}-${{ matrix.c_compiler }}
+        path: artifacts/*
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
+
+    - name: Create Package
+      if: matrix.build_type == 'Release'
+      run: |
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --target package
+      
+    - name: Upload Package
+      if: matrix.build_type == 'Release'
+      uses: actions/upload-artifact@v3
+      with:
+        name: tagfs-package-${{ matrix.os }}-${{ matrix.c_compiler }}
+        path: ${{ steps.strings.outputs.build-output-dir }}/*.zip
