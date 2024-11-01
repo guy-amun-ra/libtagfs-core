@@ -23,12 +23,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          # First try to get version from CMake
-          VERSION=$(cmake -P - <<EOF
-          file(STRINGS "VERSION" ver)
-          message("\${ver}")
-          EOF
-          )
+          VERSION=$(cat VERSION | tr -d '\n')
           echo "version=v${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Check Tag
@@ -49,4 +44,4 @@ jobs:
           body: |
             ## TagFS Core Library Release ${{ steps.version.outputs.version }}
             
-            Please refer to [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+            Please refer to the changelog for detailed changes.
