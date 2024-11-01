@@ -64,38 +64,27 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
-    - name: Package Artifacts
+    - name: Copy Executables
       shell: bash
       run: |
         mkdir -p artifacts
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp -v ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tagfs-hello.exe artifacts/ || true
-          cp -v ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tests/unit/tagfs_tests.exe artifacts/ || true
+          cp ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tagfs-hello.exe artifacts/ || true
         else
-          cp -v ${{ steps.strings.outputs.build-output-dir }}/tagfs-hello artifacts/ || true
-          cp -v ${{ steps.strings.outputs.build-output-dir }}/tests/unit/tagfs_tests artifacts/ || true
+          cp ${{ steps.strings.outputs.build-output-dir }}/tagfs-hello artifacts/ || true
         fi
 
-    - name: Upload Artifacts
+    - name: Upload Executable Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: tagfs-${{ matrix.os }}-${{ matrix.c_compiler }}
-        path: |
-          artifacts/*
-          ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
+        name: tagfs-executable-${{ matrix.os }}-${{ matrix.c_compiler }}
+        path: artifacts/*
 
-    - name: Publish Test Results (Linux)
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: runner.os == 'Linux' && always()
-      with:
-        files: |
-          ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
-
-    - name: Upload Test Results (Windows)
+    - name: Upload Test Results
       uses: actions/upload-artifact@v3
-      if: runner.os == 'Windows' && always()
+      if: always()
       with:
-        name: test-results-windows
+        name: test-results-${{ matrix.os }}-${{ matrix.c_compiler }}
         path: ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
 
     - name: Create Package
@@ -109,3 +98,14 @@ jobs:
       with:
         name: tagfs-package-${{ matrix.os }}-${{ matrix.c_compiler }}
         path: ${{ steps.strings.outputs.build-output-dir }}/*.zip
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        tag_name="${GITHUB_REF#refs/tags/}"
+        gh release create "$tag_name" \
+          --title "Release $tag_name" \
+          --notes "Release notes for version $tag_name" \
+          ./build/*.zip
