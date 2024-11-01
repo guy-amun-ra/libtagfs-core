@@ -84,7 +84,3 @@ jobs:
           draft: ${{ inputs.draft }}
           generate_release_notes: true
           files: artifacts/**/*
-          body: |
-            ## TagFS Core Library Release ${{ steps.version.outputs.version }}
-            
-            Please refer to the changelog for detailed changes.
