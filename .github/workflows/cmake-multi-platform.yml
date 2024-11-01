@@ -64,27 +64,38 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
-    - name: Copy Executables
+    - name: Package Artifacts
       shell: bash
       run: |
         mkdir -p artifacts
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tagfs-hello.exe artifacts/ || true
+          cp -v ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tagfs-hello.exe artifacts/ || true
+          cp -v ${{ steps.strings.outputs.build-output-dir }}/${{ matrix.build_type }}/tests/unit/tagfs_tests.exe artifacts/ || true
         else
-          cp ${{ steps.strings.outputs.build-output-dir }}/tagfs-hello artifacts/ || true
+          cp -v ${{ steps.strings.outputs.build-output-dir }}/tagfs-hello artifacts/ || true
+          cp -v ${{ steps.strings.outputs.build-output-dir }}/tests/unit/tagfs_tests artifacts/ || true
         fi
 
-    - name: Upload Executable Artifacts
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: tagfs-executable-${{ matrix.os }}-${{ matrix.c_compiler }}
-        path: artifacts/*
+        name: tagfs-${{ matrix.os }}-${{ matrix.c_compiler }}
+        path: |
+          artifacts/*
+          ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
 
-    - name: Upload Test Results
-      uses: actions/upload-artifact@v3
-      if: always()
+    - name: Publish Test Results (Linux)
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: runner.os == 'Linux' && always()
       with:
-        name: test-results-${{ matrix.os }}-${{ matrix.c_compiler }}
+        files: |
+          ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
+
+    - name: Upload Test Results (Windows)
+      uses: actions/upload-artifact@v3
+      if: runner.os == 'Windows' && always()
+      with:
+        name: test-results-windows
         path: ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
 
     - name: Create Package
