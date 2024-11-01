@@ -17,16 +17,23 @@ include(GoogleTest)
 find_package(Git QUIET)
 if(GIT_FOUND)
   execute_process(
-    COMMAND ${GIT_EXECUTABLE} describe --tags --dirty
+    COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE PROJECT_VERSION
+    OUTPUT_VARIABLE GIT_TAG
     ERROR_QUIET
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
+  # Remove 'v' prefix if present
+  string(REGEX REPLACE "^v" "" PROJECT_VERSION "${GIT_TAG}")
+endif()
+# If Git tag not found, use VERSION file
+if("${PROJECT_VERSION}" STREQUAL "")
+  file(STRINGS "VERSION" PROJECT_VERSION)
 endif()
 
-# If Git is not available or no tag is found, use a default version
-if("${PROJECT_VERSION}" STREQUAL "")
+# Validate version format
+if(NOT PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+  message(STATUS "Invalid version format: ${PROJECT_VERSION}, using VERSION file")
   file(STRINGS "VERSION" PROJECT_VERSION)
 endif()
 
