@@ -14,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -83,12 +84,19 @@ jobs:
           artifacts/*
           ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
 
-    - name: Publish Test Results
+    - name: Publish Test Results (Linux)
       uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always()
+      if: runner.os == 'Linux' && always()
       with:
         files: |
           ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
+
+    - name: Upload Test Results (Windows)
+      uses: actions/upload-artifact@v3
+      if: runner.os == 'Windows' && always()
+      with:
+        name: test-results-windows
+        path: ${{ steps.strings.outputs.build-output-dir }}/Testing/**/*.xml
 
     - name: Create Package
       if: matrix.build_type == 'Release'
