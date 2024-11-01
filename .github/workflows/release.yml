@@ -45,7 +45,7 @@ jobs:
         run: |
           echo "=== Build directory contents ==="
           if [ "$RUNNER_OS" == "Windows" ]; then
-            dir /s /b ${{github.workspace}}/build
+            cmd //c "dir /s /b ${{github.workspace}}/build"
           else
             ls -R ${{github.workspace}}/build
           fi
@@ -123,7 +123,7 @@ jobs:
         run: |
           echo "=== Release assets contents ==="
           if [ "$RUNNER_OS" == "Windows" ]; then
-            dir /s /b release_assets
+            cmd //c "dir /s /b release_assets"
           else
             ls -la release_assets/
           fi
