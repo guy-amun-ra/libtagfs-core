@@ -10,10 +10,12 @@ on:
         required: false
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  build-and-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
     steps:
       - uses: actions/checkout@v3
         with:
@@ -26,13 +28,53 @@ jobs:
           VERSION=$(cat VERSION | tr -d '\n')
           echo "version=v${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Check Tag
-        id: check_tag
+      - name: Install Dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DBUILD_TESTS=ON
+        
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config Release
+
+      - name: Create Artifact Name
+        id: artifact
+        shell: bash
         run: |
-          if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "Tag ${{ steps.version.outputs.version }} already exists"
-            exit 1
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "name=tagfs-${{ steps.version.outputs.version }}-windows.exe" >> $GITHUB_OUTPUT
+            echo "path=build/Release/tagfs-hello.exe" >> $GITHUB_OUTPUT
+          else
+            echo "name=tagfs-${{ steps.version.outputs.version }}-${{ runner.os }}" >> $GITHUB_OUTPUT
+            echo "path=build/tagfs-hello" >> $GITHUB_OUTPUT
           fi
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: ${{ steps.artifact.outputs.path }}
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Get Version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n')
+          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -41,6 +83,7 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           draft: ${{ inputs.draft }}
           generate_release_notes: true
+          files: artifacts/**/*
           body: |
             ## TagFS Core Library Release ${{ steps.version.outputs.version }}
             
