@@ -13,9 +13,19 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false  # Continue with other builds if one fails
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            exe_suffix: .exe
+            build_path: Release
+          - os: ubuntu-latest
+            exe_suffix: ''
+            build_path: ''
+          - os: macos-latest
+            exe_suffix: ''
+            build_path: ''
         
     steps:
       - uses: actions/checkout@v3
@@ -41,27 +51,29 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config Release
 
-      # Add explicit path handling for artifacts
       - name: Prepare Artifact
         id: prepare
         shell: bash
         run: |
           mkdir -p artifacts
           if [ "$RUNNER_OS" == "Windows" ]; then
-            cp build/Release/tagfs-hello.exe artifacts/
-            echo "artifact_path=artifacts/tagfs-hello.exe" >> $GITHUB_OUTPUT
-            echo "artifact_name=tagfs-${{ steps.version.outputs.version }}-windows.exe" >> $GITHUB_OUTPUT
+            cp "build/Release/tagfs-hello.exe" artifacts/
+            ARTIFACT_NAME="tagfs-${{ steps.version.outputs.version }}-windows.exe"
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            cp "build/tagfs-hello" artifacts/
+            ARTIFACT_NAME="tagfs-${{ steps.version.outputs.version }}-linux"
           else
-            cp build/tagfs-hello artifacts/
-            echo "artifact_path=artifacts/tagfs-hello" >> $GITHUB_OUTPUT
-            echo "artifact_name=tagfs-${{ steps.version.outputs.version }}-${{ runner.os }}" >> $GITHUB_OUTPUT
+            cp "build/tagfs-hello" artifacts/
+            ARTIFACT_NAME="tagfs-${{ steps.version.outputs.version }}-macos"
           fi
+          chmod +x artifacts/*
+          echo "artifact_name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v3
         with:
           name: ${{ steps.prepare.outputs.artifact_name }}
-          path: ${{ steps.prepare.outputs.artifact_path }}
+          path: artifacts/*
           if-no-files-found: error
 
   create-release:
@@ -84,10 +96,9 @@ jobs:
         with:
           path: release_assets
 
-      - name: List Assets
+      - name: Prepare Release Assets
         run: |
-          echo "Contents of release_assets:"
-          ls -R release_assets
+          find release_assets -type f -exec chmod +x {} \;
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
